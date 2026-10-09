@@ -1,0 +1,8 @@
+fastapi==0.104.1
+uvicorn==0.24.0
+Pillow==10.2.0
+# HEIC/HEIF（iPhone 原图）解码：缺失时后端自动降级（HEIC 会打不开，其余功能不受影响）
+pillow-heif
+# 超分 / 人像优化：cv2.dnn_superres 在 contrib 包中；缺失时「超分 / 人像优化」功能不可用
+numpy
+opencv-contrib-python

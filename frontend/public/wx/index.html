@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>照片管家</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+:root {
+  --bg: #0e0e16; --card: #1a1a28; --line: rgba(255,255,255,.08);
+  --txt: #eee; --sub: rgba(255,255,255,.55); --accent: #6c63ff; --danger: #e5484d;
+}
+body { background: var(--bg); color: var(--txt); font-family: -apple-system, "PingFang SC", sans-serif; }
+/* 隐藏滚动条（内容仍可滚动）：手机端观感更像原生 App */
+html { scrollbar-width: none; -ms-overflow-style: none; }
+html::-webkit-scrollbar, *::-webkit-scrollbar { width: 0; height: 0; background: transparent; }
+/* 顶栏 */
+.topbar {
+  position: sticky; top: 0; z-index: 20;
+  display: flex; align-items: center; gap: 12px;
+  padding: calc(12px + env(safe-area-inset-top)) 14px 12px;
+  background: rgba(14,14,22,.85); backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--line);
+}
+.topbar h1 { font-size: 17px; font-weight: 600; flex: 1; }
+.topbar .btn {
+  border: none; background: var(--card); color: var(--txt);
+  border-radius: 20px; padding: 7px 14px; font-size: 13px; cursor: pointer;
+  display: flex; align-items: center; gap: 4px;
+}
+.topbar .btn.danger-btn { color: var(--danger); }
+/* Tab */
+.tabs { display: flex; gap: 6px; padding: 10px 14px 0; }
+.tabs .tab {
+  flex: 1; text-align: center; padding: 9px 0; border-radius: 10px;
+  font-size: 14px; color: var(--sub); background: transparent; border: none; cursor: pointer;
+}
+.tabs .tab.active { color: #fff; background: var(--accent); }
+.tabs .tab[data-key="trash"].has-items { position: relative; }
+.tabs .tab[data-key="trash"].has-items::after {
+  content: attr(data-count); position: absolute; top: 4px; right: 14%;
+  min-width: 16px; height: 16px; line-height: 16px; font-size: 10px; text-align: center;
+  background: var(--danger); color: #fff; border-radius: 8px; padding: 0 4px;
+}
+/* 网格 */
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; padding: 10px 3px calc(90px + env(safe-area-inset-bottom)); }
+.grid .cell { position: relative; aspect-ratio: 1; border-radius: 6px; overflow: hidden; background: var(--card); }
+.grid .cell img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.grid .cell .del {
+  position: absolute; top: 5px; right: 5px; width: 24px; height: 24px; border-radius: 50%;
+  background: rgba(0,0,0,.5); color: #fff; border: none; font-size: 14px; line-height: 1;
+  cursor: pointer; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(2px);
+}
+.grid .cell .del svg { width: 13px; height: 13px; }
+.grid .cell .tag {
+  position: absolute; left: 5px; bottom: 5px; max-width: 85%;
+  font-size: 10px; color: #fff; background: rgba(0,0,0,.55); border-radius: 4px;
+  padding: 2px 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; backdrop-filter: blur(2px);
+}
+.empty { color: var(--sub); text-align: center; padding: 60px 20px; font-size: 13px; line-height: 2; }
+/* 加载 */
+.loading { color: var(--sub); text-align: center; padding: 40px; font-size: 13px; }
+/* 底部工具栏 */
+.actionbar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+  display: flex; gap: 10px; padding: 12px 14px calc(12px + env(safe-area-inset-bottom));
+  background: rgba(14,14,22,.92); backdrop-filter: blur(16px); border-top: 1px solid var(--line);
+}
+.actionbar .upload-btn {
+  flex: 1; height: 46px; border: none; border-radius: 23px;
+  background: var(--accent); color: #fff; font-size: 15px; font-weight: 600; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.actionbar .upload-btn:disabled { opacity: .5; }
+.actionbar .upload-btn svg { width: 18px; height: 18px; }
+.actionbar .restore-btn, .actionbar .purge-btn {
+  flex: 1; height: 46px; border: none; border-radius: 23px; font-size: 14px; font-weight: 600; cursor: pointer;
+}
+.actionbar .restore-btn { background: var(--accent); color: #fff; }
+.actionbar .purge-btn { background: var(--danger); color: #fff; }
+/* 大图预览 */
+.viewer { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.95); display: none; }
+.viewer.show { display: flex; align-items: center; justify-content: center; }
+.viewer img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.viewer .v-name { position: absolute; left: 12px; bottom: 14px; max-width: 70%; font-size: 12px; color: rgba(255,255,255,.7); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.viewer .v-close { position: absolute; top: calc(12px + env(safe-area-inset-top)); right: 14px; width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,.15); color: #fff; border: none; font-size: 16px; cursor: pointer; }
+/* toast */
+.toast {
+  position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 99;
+  background: rgba(0,0,0,.8); color: #fff; padding: 10px 18px; border-radius: 10px;
+  font-size: 13px; max-width: 78%; text-align: center; display: none; backdrop-filter: blur(6px);
+}
+.toast.show { display: block; }
+.progress-mask { position: fixed; inset: 0; z-index: 60; background: rgba(0,0,0,.6); display: none; align-items: center; justify-content: center; }
+.progress-mask.show { display: flex; }
+.progress-box { background: var(--card); border-radius: 14px; padding: 22px 26px; text-align: center; min-width: 180px; }
+.progress-box .pct { font-size: 22px; font-weight: 700; color: var(--accent); margin-bottom: 6px; }
+.progress-box .ptext { font-size: 12px; color: var(--sub); }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>🗂 照片管家</h1>
+  <button class="btn" onclick="refresh()">↻ 刷新</button>
+</div>
+
+<div class="tabs">
+  <button class="tab active" data-key="all" onclick="switchTab('all')">全部照片</button>
+  <button class="tab" data-key="phone" onclick="switchTab('phone')">手机照片</button>
+  <button class="tab" data-key="trash" onclick="switchTab('trash')">回收站</button>
+</div>
+
+<div id="list" class="loading">加载中...</div>
+
+<div class="actionbar" id="actionbar">
+  <button class="upload-btn" id="uploadBtn" onclick="pickUpload()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+    上传照片
+  </button>
+</div>
+<div class="actionbar" id="trashBar" style="display:none">
+  <button class="restore-btn" onclick="trashAction('restore')">↩ 恢复选中</button>
+  <button class="purge-btn" onclick="trashAction('purge')">🗑 彻底删除</button>
+</div>
+
+<div class="viewer" id="viewer" onclick="closeViewer(event)">
+  <button class="v-close" onclick="closeViewer()">✕</button>
+  <img id="vImg" src="" alt="">
+  <div class="v-name" id="vName"></div>
+</div>
+
+<div class="progress-mask" id="progressMask">
+  <div class="progress-box">
+    <div class="pct" id="pct">0%</div>
+    <div class="ptext" id="ptext">上传中...</div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<input type="file" id="fileInput" accept="image/*,.heic,.heif" multiple style="display:none">
+<input type="file" id="fileInput2" accept="image/*" multiple style="display:none">
+
+<script>
+// ===== 配置 =====
+// 地址：改这里为你的后端地址（本机 dev :3000 代理 / :8000 生产；局域网 http://电脑IP:8000）
+const BASE = (location.port === '3000' || location.port === '5173') ? '' : '';
+// token：URL ?token=xxx 传入，写操作必须带上（后端未设 PORTAL_TOKEN 时留空即可）
+let TOKEN = new URLSearchParams(location.search).get('token') || '';
+
+// ===== 状态 =====
+let tab = 'all';          // all | phone | trash
+let photos = [];          // 当前 tab 的数据
+let sel = new Set();      // 回收站选中项
+
+const $ = id => document.getElementById(id);
+
+function apiUrl(path) {
+  const sep = path.includes('?') ? '&' : '?';
+  return (BASE || '') + path + sep + 'token=' + encodeURIComponent(TOKEN);
+}
+
+// ===== 数据加载 =====
+async function refresh() {
+  $('list').className = 'loading';
+  $('list').textContent = '加载中...';
+  try {
+    if (tab === 'trash') {
+      const r = await fetch(BASE + '/api/photos/trash/list');
+      photos = await r.json();
+    } else {
+      const r = await fetch(BASE + '/api/photos/detail');
+      const all = await r.json();
+      photos = tab === 'phone'
+        ? all.filter(p => p.name.startsWith('手机照片/'))
+        : all.filter(p => !p.name.startsWith('手机照片/'));
+    }
+    render();
+  } catch (e) {
+    $('list').className = 'empty';
+    $('list').innerHTML = '连接后端失败<br>请确认电脑上后端已启动<br><small>' + (e.message || '') + '</small>';
+  }
+}
+
+function thumbUrl(name) {
+  return (BASE || '') + '/api/photos/thumbnail/' + encodeURIComponent(name) + '?token=' + encodeURIComponent(TOKEN);
+}
+function fullUrl(name) {
+  return (BASE || '') + '/photos/' + encodeURIComponent(name);
+}
+
+// 回收站 tab 的 badge
+function updateTrashBadge() {
+  const el = document.querySelector('.tab[data-key="trash"]');
+  fetch(BASE + '/api/photos/trash/list').then(r => r.json()).then(list => {
+    if (tab === 'trash') photos = list || [];
+    el.classList.toggle('has-items', (list || []).length > 0);
+    el.dataset.count = (list || []).length;
+  }).catch(() => {});
+}
+
+// ===== 渲染 =====
+function render() {
+  const el = $('list');
+  if (!photos.length) {
+    el.className = 'empty';
+    el.innerHTML = tab === 'trash' ? '回收站空空如也' : '暂无照片';
+    return;
+  }
+  el.className = 'grid';
+  el.innerHTML = photos.map((p, i) => {
+    const name = p.name;
+    const short = name.split('/').pop();
+    if (tab === 'trash') {
+      const checked = sel.has(name) ? 'checked' : '';
+      return `<div class="cell" onclick="openFull('${i}')">
+        <img src="${thumbUrl(name)}" alt="" loading="lazy">
+        <div class="tag">${short}</div>
+        <label class="del" onclick="event.stopPropagation()" style="background:rgba(108,99,255,.7)">
+          <input type="checkbox" style="width:14px;height:14px" ${checked} data-i="${i}" onchange="toggleSel(this, '${name.replace(/'/g, "\\'")}')">
+        </label>
+      </div>`;
+    }
+    return `<div class="cell" onclick="openFull('${i}')">
+      <img src="${thumbUrl(name)}" alt="" loading="lazy">
+      <div class="tag">${short}</div>
+      <button class="del" onclick="event.stopPropagation();delOne('${name.replace(/'/g, "\\'")}')" title="删除">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
+      </button>
+    </div>`;
+  }).join('');
+  // 底部栏切换
+  const isTrash = tab === 'trash';
+  $('actionbar').style.display = isTrash ? 'none' : '';
+  $('trashBar').style.display = isTrash ? '' : 'none';
+}
+
+function switchTab(t) {
+  tab = t;
+  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.key === t));
+  if (t === 'trash') updateTrashBadge();
+  refresh();
+}
+
+// ===== 大图预览 =====
+function openFull(i) {
+  const p = photos[i];
+  if (!p) return;
+  $('vImg').src = thumbUrl(p.name);
+  $('vName').textContent = p.name;
+  $('viewer').classList.add('show');
+  // 延迟加载原图（点开后再慢慢拉）
+  const full = new Image();
+  full.onload = () => { if ($('vImg').src.includes('thumbnail')) $('vImg').src = full.src; };
+  full.src = fullUrl(p.name);
+}
+function closeViewer(e) {
+  if (e && e.target !== $('viewer') && e.target !== $('viewer').querySelector('img')) return;
+  $('viewer').classList.remove('show');
+}
+
+// ===== 删除（进回收站）=====
+async function delOne(name) {
+  if (!confirm('删除「' + name.split('/').pop() + '」到回收站？')) return;
+  try {
+    const r = await fetch(apiUrl('/api/photos/trash'), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ names: [name] })
+    });
+    const j = await r.json();
+    if (r.ok && (j.moved || []).length) {
+      toast('已删除');
+      refresh(); calendarBadge();
+    } else {
+      toast('删除失败：' + ((j.failed && j.failed[0] && j.failed[0].reason) || r.status));
+    }
+  } catch (e) { toast('删除失败：' + e.message); }
+}
+function calendarBadge() { updateTrashBadge(); }
+
+// ===== 回收站选中 / 操作 =====
+function toggleSel(checkbox, name) {
+  if (checkbox.checked) sel.add(name); else sel.delete(name);
+}
+function selectedNames() {
+  // 与当前渲染列表对齐，防止 DOM 状态与数据不同步
+  const names = [...sel];
+  sel = new Set(names.filter(n => photos.some(p => p.name === n)));
+  return [...sel];
+}
+async function trashAction(action) {
+  const names = selectedNames();
+  if (!names.length) { toast('请先勾选照片'); return; }
+  const isPurge = action === 'purge';
+  if (isPurge && !confirm('彻底删除 ' + names.length + ' 张？不可找回！')) return;
+  if (!isPurge && !confirm('恢复 ' + names.length + ' 张到原位置？')) return;
+  try {
+    const r = await fetch(apiUrl('/api/photos/trash/' + action), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ names })
+    });
+    const j = await r.json();
+    const ok = (j[isPurge ? 'purged' : 'restored'] || []).length;
+    sel = new Set();
+    toast((isPurge ? '已彻底删除 ' : '已恢复 ') + ok + ' 张');
+    refresh(); calendarBadge();
+  } catch (e) { toast('操作失败：' + e.message); }
+}
+
+// ===== 上传 =====
+function pickUpload() {
+  const inp = tab === 'phone' ? $('fileInput') : $('fileInput2');
+  inp.value = '';
+  inp.click();
+}
+$('fileInput').addEventListener('change', e => doUpload(e.target.files));
+$('fileInput2').addEventListener('change', e => doUpload(e.target.files));
+
+async function doUpload(files) {
+  // 手机/微信内选图时 file.type 可能为空、文件名可能不带扩展名，前端不再做格式筛选，
+  // 全部交给后端逐张校验（后端按扩展名 + PIL 解码双重把关，非图片只报失败不会写进照片库）
+  const list = [...files];
+  if (!list.length) { toast('没有选择的文件'); return; }
+  $('progressMask').classList.add('show');
+  const total = list.length;
+  let done = 0, saved = 0, failed = 0;
+  try {
+    // 逐张上传（后端最多一次几张即可，避免并发打爆内存）
+    for (const f of list) {
+      const fd = new FormData();
+      fd.append('files', f);
+      try {
+        const r = await fetch(apiUrl('/api/photos/library/upload'), { method: 'POST', body: fd });
+        const j = await r.json();
+        saved += (j.saved || []).length;
+        failed += (j.failed || []).length;
+      } catch (e) { failed++; }
+      done++;
+      $('pct').textContent = Math.round(done / total * 100) + '%';
+      $('ptext').textContent = '上传中 ' + done + '/' + total;
+    }
+    toast('完成：成功 ' + saved + ' 张' + (failed ? '，失败 ' + failed + ' 张' : ''));
+    refresh(); calendarBadge();
+  } finally {
+    $('progressMask').classList.remove('show');
+  }
+}
+
+// ===== toast =====
+let toastTimer = null;
+function toast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ===== 初始化 =====
+refresh();
+setInterval(updateTrashBadge, 30000); // 定期刷新回收站徽标
+</script>
+</body>
+</html>

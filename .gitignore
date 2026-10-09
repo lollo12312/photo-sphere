@@ -1,0 +1,27 @@
+# ===== 依赖与构建产物 =====
+frontend/node_modules/
+frontend/dist/
+
+# ===== 运行时数据（启动自动重建，无需入库）=====
+backend/cache/
+backend/uploads/
+__pycache__/
+*.pyc
+
+# ===== 开发用截图 / 旧代码备份 =====
+shots/
+_archive_*/
+_backup_current_src/
+
+# ===== 本地参考页（保留在本地，不入库）=====
+frontend/public/album-restore.html
+backend/make_album_page.py
+
+# ===== 环境与日志 =====
+.env
+*.log
+
+# ===== 系统文件 =====
+.DS_Store
+Thumbs.db
+desktop.ini
