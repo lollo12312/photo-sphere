@@ -1,8 +1,10 @@
-fastapi==0.104.1
-uvicorn==0.24.0
-Pillow==10.2.0
+fastapi==0.128.8
+# 上传接口解析 multipart 表单所必需（缺失时 FastAPI 注册上传路由即报错、后端无法启动）
+python-multipart==0.0.6
+uvicorn==0.24.0.post1
+Pillow==12.1.0
 # HEIC/HEIF（iPhone 原图）解码：缺失时后端自动降级（HEIC 会打不开，其余功能不受影响）
-pillow-heif
+pillow-heif==1.7.0
 # 超分 / 人像优化：cv2.dnn_superres 在 contrib 包中；缺失时「超分 / 人像优化」功能不可用
-numpy
-opencv-contrib-python
+numpy==2.3.5
+opencv-contrib-python==5.0.0.93

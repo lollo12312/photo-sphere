@@ -2,6 +2,9 @@
 frontend/node_modules/
 frontend/dist/
 
+# ===== Python 虚拟环境 =====
+.venv/
+
 # ===== 运行时数据（启动自动重建，无需入库）=====
 backend/cache/
 backend/uploads/

@@ -19,10 +19,16 @@
 
 ## 快速开始
 
+### Windows 一键启动
+
+双击根目录 `start.bat`：自动打开两个窗口（后端 :8000 + 前端 :3000）。
+
 ### 1. 后端（端口 8000）
 
 ```bash
 cd backend
+python -m venv .venv                # 首次：创建虚拟环境
+.venv\Scripts\activate              # Windows 激活（macOS/Linux：source .venv/bin/activate）
 pip install -r requirements.txt
 python main.py
 ```
